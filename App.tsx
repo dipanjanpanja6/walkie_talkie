@@ -1,6 +1,11 @@
 import { FirebaseAuthTypes, getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import React, { useEffect, useState } from 'react';
+import WalkieTalkieScreen from './src/screens/callScreen';
 import HomeScreen from './src/screens/homeScreen';
+
+const Stack = createStackNavigator();
 
 export default function App() {
   // Set an initializing state whilst Firebase connects
@@ -22,5 +27,12 @@ export default function App() {
 
   // if (!user) return <Auth />;
 
-  return <HomeScreen />;
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="ChannelList">
+        <Stack.Screen name="ChannelList" component={HomeScreen} />
+        <Stack.Screen name="WalkieTalkie" component={WalkieTalkieScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 }

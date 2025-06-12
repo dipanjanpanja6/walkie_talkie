@@ -1,126 +1,86 @@
+import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Button, PermissionsAndroid, Platform, Text, View } from 'react-native';
-import { mediaDevices, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
-import db from '../firebase';
+import { Button, PermissionsAndroid, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { mediaDevices, MediaStream, RTCView } from 'react-native-webrtc';
+import SignalingManager from '../services/signaling';
+import { } from '../services/webrtc';
+import { initializeUser } from '../utils/user';
 
-const servers = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-};
+const WalkieTalkieScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
 
-const CallScreen = ({ callId, isCaller, setStart }: any) => {
-  const pc = useRef(new RTCPeerConnection(servers));
-  const [status, setStatus] = useState('Initializing...');
-  const localStream = useRef<MediaStream | null>(null);
-  const ref = db.ref(`/calls/${callId}`);
+  const { channelId } = route.params;
+
+  const userId = useRef<string>(null);
+  const signalingManager = useRef<SignalingManager>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [micActive, setMicActive] = useState(false);
 
   useEffect(() => {
-    const setup = async () => {
-      await requestPermissions();
-
-      await setupMedia();
-
-      console.log('got permissions');
-      if (isCaller) {
-        createOffer();
-      } else {
-        listenForOffer();
-      }
-
-      listenForIceCandidates();
-    };
-    setup().catch(error => {
-      Alert.alert('Setup Error', 'Failed to setup call: ' + error.message);
-    });
+    init();
     return () => {
-      cleanup();
+      signalingManager.current?.leave();
     };
   }, []);
 
+  const init = async () => {
+    await requestPermissions();
+    userId.current = await initializeUser();
+    signalingManager.current = new SignalingManager(channelId, userId.current, handleRemoteStream);
+    await signalingManager.current.joinChannel();
+  };
+
   const requestPermissions = async () => {
-    try {
-      if (Platform.OS === 'android') await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
-    } catch (error) {
-      Alert.alert('Permission Error', 'Failed to get audio permissions');
-      console.error('Permission error:', error);
+    if (Platform.OS === 'android') {
+      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
     }
   };
 
-  const setupMedia = async () => {
+  const handleRemoteStream = (stream: MediaStream) => {
+    setRemoteStream(stream);
+  };
+
+  const startTalking = async () => {
     const stream = await mediaDevices.getUserMedia({ audio: true });
-    localStream.current = stream;
-    stream.getTracks().forEach(track => {
-      pc.current.addTrack(track, stream);
-    });
-    setStatus('Microphone ready');
+    setLocalStream(stream);
+    await signalingManager.current?.addStream(stream);
+    setMicActive(true);
   };
 
-  const createOffer = async () => {
-    const offer = await pc.current.createOffer({});
-    await pc.current.setLocalDescription(offer);
-    console.log('Offer created:', offer);
-
-    await ref.set(offer);
-
-    console.log(await ref.once('value'));
-
-    setStatus('Calling...');
-  };
-
-  const listenForOffer = () => {
-    db.ref(`/calls/${callId}/offer`).on('value', async snapshot => {
-      const offer = snapshot.val();
-      if (offer) {
-        await pc.current.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.current.createAnswer();
-        await pc.current.setLocalDescription(answer);
-        await db.ref(`/calls/${callId}/answer`).set(answer);
-        setStatus('Answered');
-      }
-    });
-  };
-
-  const listenForIceCandidates = () => {
-    pc.current.onicecandidate = event => {
-      if (event.candidate) {
-        const type = isCaller ? 'callerCandidates' : 'calleeCandidates';
-        db.ref(`/calls/${callId}/${type}`).push(event.candidate.toJSON());
-      }
-    };
-
-    const remoteType = isCaller ? 'calleeCandidates' : 'callerCandidates';
-    db.ref(`/calls/${callId}/${remoteType}`).on('child_added', snapshot => {
-      const candidate = new RTCIceCandidate(snapshot.val());
-      pc.current.addIceCandidate(candidate);
-    });
-
-    db.ref(`/calls/${callId}/answer`).on('value', async snapshot => {
-      const answer = snapshot.val();
-      if (answer && !isCaller) return;
-      if (answer) {
-        await pc.current.setRemoteDescription(new RTCSessionDescription(answer));
-        setStatus('In call');
-      }
-    });
-  };
-
-  const cleanup = async () => {
-    try {
-      console.log('call cleanup started');
-
-      pc.current.close();
-      ref.remove();
-      console.log('call cleanup completed');
-    } catch (error) {
-      console.error('Cleanup error:', error);
-    }
+  const stopTalking = () => {
+    localStream?.getTracks().forEach(track => track.stop());
+    setLocalStream(null);
+    setMicActive(false);
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Status: {status}</Text>
-      <Button title="Hang up" onPress={() => setStart(false)} />
+    <View style={styles.container}>
+      <Text style={styles.header}>Channel: {channelId}</Text>
+
+      <TouchableOpacity style={[styles.button, micActive ? styles.active : {}]} onPressIn={startTalking} onPressOut={stopTalking}>
+        <Text style={styles.buttonText}>{micActive ? 'Talking...' : 'Push to Talk'}</Text>
+      </TouchableOpacity>
+
+      {remoteStream && (
+        <RTCView
+          streamURL={remoteStream.toURL()}
+          style={{ width: 1, height: 1 }} // silent playing remote stream
+        />
+      )}
+
+      <Button title="Leave Channel" onPress={() => navigation.goBack()} />
     </View>
   );
 };
 
-export default CallScreen;
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { fontSize: 24, marginBottom: 30 },
+  button: { padding: 30, backgroundColor: '#555', borderRadius: 100 },
+  active: { backgroundColor: 'red' },
+  buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+});
+
+export default WalkieTalkieScreen;
