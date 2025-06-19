@@ -1,4 +1,4 @@
-import AdonisServer from '@ioc:Adonis/Core/Server'
+import server from '@adonisjs/core/services/server'
 import { Server } from 'socket.io'
 
 class WsService {
@@ -14,7 +14,7 @@ class WsService {
     }
 
     this.booted = true
-    this.io = new Server(AdonisServer.instance!)
+    this.io = new Server(server.getNodeServer()!)
   }
 }
 
