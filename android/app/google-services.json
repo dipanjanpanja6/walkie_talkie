@@ -8,14 +8,14 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:320347144434:android:1a63a2a01813a56d85d06b",
+        "mobilesdk_app_id": "1:320347144434:android:6be88cd36fdd545085d06b",
         "android_client_info": {
           "package_name": "in.dipanjanpanja.walkietalkie"
         }
       },
       "oauth_client": [
         {
-          "client_id": "320347144434-9ie39nljgtgn4oclkbqnv2hdch8e08dl.apps.googleusercontent.com",
+          "client_id": "320347144434-7uvns84i30pjcvpmr5veg3qdaiq6jh11.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "in.dipanjanpanja.walkietalkie",

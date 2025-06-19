@@ -2,6 +2,10 @@ import { FirebaseAuthTypes, getAuth, onAuthStateChanged } from '@react-native-fi
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import React, { useEffect, useState } from 'react';
+import { PaperProvider } from 'react-native-paper';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AppBar from './src/components/AppBar';
+import Auth from './src/screens/auth';
 import WalkieTalkieScreen from './src/screens/callScreen';
 import HomeScreen from './src/screens/homeScreen';
 
@@ -25,14 +29,18 @@ export default function App() {
 
   if (initializing) return null;
 
-  // if (!user) return <Auth />;
+  if (!user) return <Auth />;
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="ChannelList">
-        <Stack.Screen name="ChannelList" component={HomeScreen} />
-        <Stack.Screen name="WalkieTalkie" component={WalkieTalkieScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <PaperProvider>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator initialRouteName="ChannelList" screenOptions={{ header: props => <AppBar {...props} /> }}>
+            <Stack.Screen name="ChannelList" component={HomeScreen} options={{ title: 'Home' }} />
+            <Stack.Screen name="WalkieTalkie" component={WalkieTalkieScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </PaperProvider>
   );
 }
